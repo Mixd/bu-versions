@@ -340,7 +340,7 @@ class BU_VPost_Factory {
 			'rewrite' => false,
 			'has_archive' => false,
 			'query_var' => true,
-			'supports' => array('editor', 'title', 'author', 'revisions' ), // copy support from the post_type
+			'supports' => array('editor', 'title', 'author', 'revisions', 'excerpt' ), // copy support from the post_type
 			'taxonomies' => array(),
 			'show_ui' => true,
 			'show_in_menu' => false,
