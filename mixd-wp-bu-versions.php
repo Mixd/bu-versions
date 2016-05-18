@@ -1,11 +1,11 @@
 <?php
 /*
-Plugin Name: BU Versions
-Plugin URI: http://developer.bu.edu/bu-versions/
-Author: Boston University (IS&T)
-Author URI: http://sites.bu.edu/web/
+Plugin Name: Mixd Plugins: BU Versions
+Plugin URI: https://github.com/Mixd/bu-versions
+Author: Mixd 
+Author URI: https://github.com/Mixd/bu-versions
 Description: Make and review edits to published content.
-Version: 0.7.7
+Version: Mixd-1.0.0
 Text Domain: bu-versions
 Domain Path: /languages
 */

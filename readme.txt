@@ -1,4 +1,4 @@
-# BU Versions #
+# Mixd WordPress BU Versions #
 
 **Contributors:** gcorne, mgburns, awbauer, mixd
 
