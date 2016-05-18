@@ -15,6 +15,15 @@ class Test_BU_Versions extends WP_UnitTestCase {
 		parent::tearDown();
 	}
 
+	function test_long_post_type(){
+		$this->assertTrue( post_type_exists( '1suuuuperlongp_alt' ) );
+	}
+
+	function test_conflicting_long_post_types(){
+		$this->assertTrue( post_type_exists( '2suuuuperlongp1_alt' ) );
+
+	}
+
 	function test_create_version() {
 		list($original_post, $version_post) = $this->create_version();
 
@@ -60,6 +69,41 @@ class Test_BU_Versions extends WP_UnitTestCase {
 		$this->assertNull($alt_post);
 
 	}
+
+	/**
+	 * Demonstrates a bug that showed up in 4.0 due to a logic
+	 * check added to `redirect_canonical`.
+	 *
+	 * The end result was that the preview link for alternate versions
+	 * of the front page was breaking.
+	 */
+	function test_preview_version() {
+		list($original_post, $alt_version) = $this->create_version();
+		$version = new BU_Version;
+		$version->get( $alt_version->ID );
+
+		update_option('show_on_front', 'page');
+		update_option('page_on_front', $original_post->ID);
+
+		// Hack to ensure our custom query variable persists the cleanup
+		// implicit in `$this->go_to()`
+		add_filter( 'query_vars', function ( $vars ) {
+			$vars[] = 'version_id';
+			return $vars;
+		} );
+
+		$this->go_to( $version->get_preview_URL() );
+
+		$redirect_url = @redirect_canonical( $version->get_preview_URL(), false );
+
+		if ( version_compare( $GLOBALS['wp_version'], '4.0', '>=' ) && version_compare( $GLOBALS['wp_version'], '4.2.3', '<=' )) {
+			// bug from v4.0 => v4.2.3
+			$this->assertFalse( $redirect_url );
+		} else {
+			$this->assertNull( $redirect_url );
+		}
+	}
+
 
 	function create_version() {
 		$post_id = $this->insert_post('page');

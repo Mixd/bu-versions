@@ -5,7 +5,7 @@ Plugin URI: http://developer.bu.edu/bu-versions/
 Author: Boston University (IS&T)
 Author URI: http://sites.bu.edu/web/
 Description: Make and review edits to published content.
-Version: 0.7.4
+Version: 0.7.7
 Text Domain: bu-versions
 Domain Path: /languages
 */
@@ -45,7 +45,7 @@ class BU_Version_Workflow {
 	public static $controller;
 	public static $admin;
 
-	const version = '0.7.4';
+	const version = '0.7.7';
 
 	static function init() {
 
@@ -70,7 +70,7 @@ class BU_Version_Workflow {
 			add_action( 'admin_bar_menu', array( self::$controller, 'admin_bar_menu' ), 31 );
 		}
 
-		add_action( 'map_meta_cap', array( self::$controller, 'map_meta_cap' ), 20, 4 );
+		add_filter( 'map_meta_cap', array( self::$controller, 'map_meta_cap' ), 20, 4 );
 
 		// is this necessary?
 		add_rewrite_tag( '%version_id%', '[^&]+' );
@@ -192,8 +192,11 @@ class BU_Version_Admin {
 						$label = $original->labels->singular_name;
 						$label[0] = strtolower($label[0]);
 					}
-					$edit_link = sprintf('<a href="%s" target="_blank">%s %s</a>', $version->get_original_edit_url(), __('original', 'bu-versions' ), $label);
-					$notice = sprintf(__('This is a clone of an existing %s and will replace the %s when published.', 'bu-versions' ), $label, $edit_link);
+					$original_link = $label;
+					if ( current_user_can( $original->cap->edit_post, $version->original->ID ) ) {
+						$original_link = sprintf('<a href="%s" target="_blank">%s %s</a>', $version->get_original_edit_url(), __('original', 'bu-versions' ), $label);
+					}
+					$notice = sprintf(__('This is a clone of an existing %s and will replace the %s when published.', 'bu-versions' ), $label, $original_link);
 					printf('<div class="updated bu-version-notice"><p>%s</p></div>', $notice);
 				} else {
 					$pto = get_post_type_object($post->post_type);
@@ -308,6 +311,15 @@ class BU_VPost_Factory {
 		$this->v_post_types = array();
 	}
 
+	function increment_post_type_name( $name ) {
+		$inc = 1;
+		while ( post_type_exists( $name ) ) {
+			$name = sprintf( '%s%d', $name, $inc );
+			$inc++;
+		}
+		return $name;
+	}
+
 	/**
 	 * Registers an "alt" post type for each post_type that has show_ui enabled.
 	 *
@@ -415,8 +427,16 @@ class BU_VPost_Factory {
 				$meta_keys[] = '_wp_page_template';
 			}
 
-			$v_post_type = $type->name . '_alt';
+			$alt_name = $type->name;
 
+			if ( strlen( $alt_name ) > 16 ) {
+				$alt_name = substr($type->name, 0, 14); // 14 chars + up to 2 for increment + 4 for '_alt' = 20 char limit
+				if ( post_type_exists( $alt_name ) ) {
+					$alt_name = self::increment_post_type_name( $alt_name );
+				}
+			}
+
+			$v_post_type = apply_filters( 'bu_alt_versions_post_type_alt_name', $alt_name . '_alt', $type );
 			$register = register_post_type($v_post_type, $args);
 			if(!is_wp_error($register)) {
 				$this->v_post_types[$v_post_type] = new BU_Version_Manager($type->name, $v_post_type, $args, $meta_keys);
@@ -653,7 +673,7 @@ class BU_Version_Controller {
 		return $caps;
 	}
 
-	function get_URL($post) {
+	static function get_URL($post) {
 		$url = 'admin.php?page=bu_create_version';
 		$url = add_query_arg(array('post_type' => $post->post_type, 'post' => $post->ID), $url);
 		return wp_nonce_url($url, 'create_version');
@@ -766,6 +786,12 @@ class BU_Version_Controller {
 		$post->post_title = $preview->post_title;
 		$post->post_excerpt = $preview->post_excerpt;
 
+		// Workaround for `redirect_canonical` logic added in 4.0
+		// See https://core.trac.wordpress.org/changeset/28874
+		if ( 'page' === get_option( 'show_on_front' ) && $post->ID == get_option( 'page_on_front' ) ) {
+			add_filter( 'redirect_canonical', '__return_false' );
+		}
+
 		return $post;
 
 	}
@@ -856,13 +882,14 @@ class BU_Version_Controller {
 
 			$wp_admin_bar->remove_menu('edit');
 
-			// in this case we don't want to override the edit links
-			remove_filter('get_edit_post_link', array($this, 'override_edit_post_link'), 10, 3);
+			// Temporarily remove filters that interfere with generating "Edit" menu items
+			remove_filter( 'get_edit_post_link', array( $this, 'override_edit_post_link' ), 10, 3 );
+			remove_filter( 'map_meta_cap', array( $this, 'map_meta_cap' ), 20, 4 );
 
 			if ( current_user_can( $current_post_type->cap->edit_post, $current_object->ID ) ) {
 				$wp_admin_bar->add_menu( array( 'id' => 'bu-edit', 'title' => _x( 'Edit', 'admin bar menu group label', 'bu-versions'), 'href' => get_edit_post_link( $current_object->ID ) ) );
 
-				if ( $version->original->ID != $current_object->ID && current_user_can( 'edit_post', $version->original->ID ) ) {
+				if ( $version->original->ID != $current_object->ID && current_user_can( $original_post_type->cap->edit_post, $version->original->ID ) ) {
 					$wp_admin_bar->add_menu( array( 'parent' => 'bu-edit', 'id' => 'bu-edit-original', 'title' => __('Edit Original', 'bu-versions'), 'href' => $version->get_original_edit_url() ) );
 				}
 
@@ -874,7 +901,8 @@ class BU_Version_Controller {
 					$wp_admin_bar->add_menu( array( 'id' => 'bu-edit-alt', 'title' => __('Edit Alternate Version', 'bu-versions'), 'href' => $version->get_edit_url() ) );
 			}
 
-			add_filter('get_edit_post_link', array($this, 'override_edit_post_link'), 10, 3);
+			add_filter( 'get_edit_post_link', array( $this, 'override_edit_post_link' ), 10, 3 );
+			add_filter( 'map_meta_cap', array( $this, 'map_meta_cap' ), 20, 4 );
 		}
 	}
 

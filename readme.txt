@@ -1,9 +1,9 @@
 === BU Versions ===
-Contributors: gcorne, mgburns
+Contributors: gcorne, mgburns, awbauer
 Tags: content editing, workflow, version, merge, boston university, bu
 Requires at least: 3.1
-Tested up to: 4.1
-Stable tag: 0.7.4
+Tested up to: 4.3
+Stable tag: 0.7.7
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -58,6 +58,19 @@ Please see our Github wiki page to learn [how to register alternate version supp
 5. Admin bar integration makes it easy to edit alternate versions in addition to original posts from the front-end
 
 == Changelog ==
+= 0.7.7 =
+
+* Bugfix for post types with long names
+* Adds `bu_alt_versions_post_type_alt_name` filter, allowing the alt post type name to be customized
+
+= 0.7.6 =
+
+* Confirmed 4.2 compatibility
+* Stop showing edit links for original post when current user can't edit them
+
+= 0.7.5 =
+
+* Fixed issue with previews for static front page for WP 4.0+
 
 = 0.7.4 =
 
@@ -66,7 +79,6 @@ Please see our Github wiki page to learn [how to register alternate version supp
 * Updated unit tests to work with current test suite using WP CLI test scaffolding
 * Added TravisCI integration
 * Minor cleanup
-
 
 = 0.7.3 =
 
